@@ -191,7 +191,7 @@ const initRoadmap = [
   { id: 8, mes: "Mayo 2026", proyecto: "Espeis", hito: "LinkedIn: conectar 20 productoras MAD/BCN", prioridad: "media", estado: "pending" },
   { id: 9, mes: "Mayo 2026", proyecto: "NeuroEconomy", hito: "Seguro médico España + medios económicos", prioridad: "alta", estado: "pending" },
   { id: 10, mes: "Mayo 2026", proyecto: "NeuroEconomy", hito: "Solicitar ENISA + Constituir SL española", prioridad: "media", estado: "pending" },
-  { id: 11, mes: "Junio 2026", proyecto: "España", hito: "Vuelo Barcelona · 15 jun · Casa Delta", prioridad: "alta", estado: "confirmed" },
+  { id: 11, mes: "Mayo 2026", proyecto: "España", hito: "Vuelo a España · 11 mayo · salida Buenos Aires", prioridad: "alta", estado: "confirmed" },
   { id: 12, mes: "Junio 2026", proyecto: "España", hito: "Florencia con Nico Pente (19–26 jun)", prioridad: "alta", estado: "confirmed" },
   { id: 13, mes: "Junio 2026", proyecto: "Sonar Luz", hito: "Inicio Cohorte 1 · martes 19hs España", prioridad: "alta", estado: "pending" },
   { id: 14, mes: "Junio 2026", proyecto: "Boios", hito: "Freezar tandas · dejar operación con Mile y Dan", prioridad: "alta", estado: "pending" },
@@ -208,7 +208,7 @@ const initRoadmap = [
 const initPauta = [
   { id: 1, proyecto: "Sonar Luz", plataforma: "Meta Ads", presupuestoUSD: 50, inicio: "2026-05-07", fin: "2026-05-14", objetivo: "Registros webinar", estado: "planned" },
   { id: 2, proyecto: "Sonar Luz", plataforma: "Meta Ads", presupuestoUSD: 80, inicio: "2026-05-14", fin: "2026-06-07", objetivo: "Cierre cohorte 1", estado: "planned" },
-  { id: 3, proyecto: "Boios", plataforma: "WhatsApp + Stories orgánico", presupuestoUSD: 0, inicio: "2026-04-01", fin: "2026-06-15", objetivo: "Referidos + suscripción", estado: "active" },
+  { id: 3, proyecto: "Boios", plataforma: "WhatsApp + Stories orgánico", presupuestoUSD: 0, inicio: "2026-04-01", fin: "2026-05-11", objetivo: "Referidos + suscripción", estado: "active" },
   { id: 4, proyecto: "Espeis", plataforma: "LinkedIn orgánico", presupuestoUSD: 0, inicio: "2026-05-01", fin: "2026-08-31", objetivo: "3 reuniones productoras", estado: "planned" },
   { id: 5, proyecto: "Boios", plataforma: "Meta Ads (test)", presupuestoUSD: 30, inicio: "2026-05-01", fin: "2026-05-15", objetivo: "Test nuevos barrios CABA", estado: "planned" },
 ];
@@ -265,6 +265,7 @@ export default function App() {
   const [proyeccion, setProyeccion] = useStore("ij_proy", initProyeccion);
   const [social, setSocial] = useStore("ij_social", initSocial);
   const [semana] = useStore("ij_semana", initSemana);
+  const [ahorros, setAhorros] = useStore("ij_ahorros", { ars: 0, usd: 0, eur: 0 });
 
   // Handlers
   const updGig = (id, k, v) => setGigs(gigs.map(g => g.id === id ? { ...g, [k]: v } : g));
@@ -360,7 +361,7 @@ export default function App() {
   ];
 
   const exportAll = () => {
-    const d = { gigs, clients, boiosCRM, boiosW, checklist, roadmap, pauta, proyeccion, social, dolarBlue, eurRate, exported: new Date().toISOString() };
+    const d = { gigs, clients, boiosCRM, boiosW, checklist, roadmap, pauta, proyeccion, social, ahorros, dolarBlue, eurRate, exported: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "iejezkel_backup_" + new Date().toISOString().slice(0, 10) + ".json"; a.click();
   };
@@ -376,6 +377,7 @@ export default function App() {
         if (d.pauta) setPauta(d.pauta); if (d.proyeccion) setProyeccion(d.proyeccion);
         if (d.social) setSocial(d.social);
         if (d.dolarBlue) setDolarBlue(d.dolarBlue); if (d.eurRate) setEurRate(d.eurRate);
+        if (d.ahorros) setAhorros(d.ahorros);
         alert("Datos importados correctamente");
       } catch { alert("Error al importar"); }
     }; r.readAsText(f);
@@ -394,9 +396,10 @@ export default function App() {
           <div>
             <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, color: "#5a5a6e", marginBottom: 4 }}>Countdown España</div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 36, color: GOLD, lineHeight: 1 }}>
-              {daysTo("2026-06-15")} <span style={{ fontSize: 14, color: "#9a9aaa" }}>días</span>
+              {daysTo("2026-05-11")} <span style={{ fontSize: 14, color: "#9a9aaa" }}>días</span>
             </div>
-            <div style={{ fontSize: 10, color: "#5a5a6e", marginTop: 4 }}>Barcelona · 15 junio 2026</div>
+            <div style={{ fontSize: 10, color: "#5a5a6e", marginTop: 4 }}>Salida Buenos Aires · 11 mayo 2026</div>
+            <div style={{ fontSize: 10, color: "#5a5a6e" }}>Regreso · 9 agosto 2026</div>
           </div>
           <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 24, display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 11, color: "#9a9aaa" }}>
@@ -437,6 +440,51 @@ export default function App() {
             <div className="vl">{ckDone}/{checklist.length}</div>
             <div className="pb"><div className="pf" style={{ width: `${ckDone / checklist.length * 100}%`, background: GOLD }} /></div>
             <div className="sub">{checklist.length - ckDone} ítems pendientes</div>
+          </div>
+        </div>
+
+        {/* AHORROS */}
+        <div className="cd" style={{ marginBottom: 20 }}>
+          <h3>Ahorros · Capital disponible</h3>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Pesos ARS</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 14 }}>$</span>
+                <EC val={ahorros.ars} type="number" onSave={v => setAhorros({ ...ahorros, ars: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: GOLD }} />
+              </div>
+              <Usd ars={ahorros.ars} rate={dolarBlue} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Dólares USD</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 14 }}>USD</span>
+                <EC val={ahorros.usd} type="number" onSave={v => setAhorros({ ...ahorros, usd: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: CYAN }} />
+              </div>
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>{fARS(ahorros.usd * dolarBlue)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Euros EUR</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 14 }}>€</span>
+                <EC val={ahorros.eur} type="number" onSave={v => setAhorros({ ...ahorros, eur: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: BLUE }} />
+              </div>
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>{fARS(ahorros.eur * eurRate)}</div>
+            </div>
+            <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 24 }}>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Total ARS equiv.</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: GREEN }}>
+                {fARS(ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate)}
+              </div>
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>
+                USD {fmt(Math.round((ahorros.ars / dolarBlue) + ahorros.usd + (ahorros.eur * eurRate / dolarBlue)))} total equiv.
+              </div>
+              <div style={{ fontSize: 10, color: 5095 * eurRate > (ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate) ? RED : GREEN, marginTop: 4 }}>
+                {5095 * eurRate > (ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate)
+                  ? "Falta " + fARS(5095 * eurRate - (ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate)) + " para cubrir España"
+                  : "Cubre los " + fEUR(5095) + " de gastos España"}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -740,7 +788,7 @@ export default function App() {
     case "espana": return (
       <div>
         <h2 className="pt">España 2026 · Calendar</h2>
-        <p className="ps">{daysTo("2026-06-15")} días para el primer vuelo · Click en status para cambiar</p>
+        <p className="ps">{daysTo("2026-05-11")} días para el vuelo · 11 mayo → 9 agosto 2026 · Click en status para cambiar</p>
 
         <div className="g4" style={{ marginBottom: 16 }}>
           <div className="cd">
@@ -761,12 +809,12 @@ export default function App() {
           </div>
           <div className="cd">
             <h3>Próxima Fecha</h3>
-            <div className="vl" style={{ fontSize: 20 }}>{daysTo("2026-06-15")} días</div>
-            <div className="sub">Barcelona · Casa Delta</div>
+            <div className="vl" style={{ fontSize: 20 }}>{daysTo("2026-05-11")} días</div>
+            <div className="sub">Salida · 11 mayo 2026</div>
           </div>
         </div>
 
-        {["Junio 2026", "Julio 2026", "Agosto 2026"].map(mes => {
+        {["Mayo 2026", "Junio 2026", "Julio 2026", "Agosto 2026"].map(mes => {
           const mesGigs = gigs.filter(g => monthName(g.date) === mes);
           if (!mesGigs.length) return null;
           return (
@@ -1402,7 +1450,7 @@ tr:hover td{background:rgba(212,168,83,.02)}
             </label>
           </div>
           <div style={{ padding: "8px 16px", fontSize: 9, color: "#5a5a6e" }}>
-            <div style={{ color: "#d4a853", fontSize: 10 }}>Jun → Ago · BCN · FLR · MAD</div>
+            <div style={{ color: "#d4a853", fontSize: 10 }}>May → Ago · BCN · FLR · MAD</div>
             <div style={{ marginTop: 2 }}>Auto-guardado local</div>
           </div>
         </nav>
