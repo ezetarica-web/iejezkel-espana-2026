@@ -100,6 +100,23 @@ const StatusBadge = ({ status, onChange }) => {
   );
 };
 
+// ─── BIDIRECCIONAL USD ↔ ARS ──────────────────────────────
+const BiMonto = ({ usd, onChangeUsd, rate }) => {
+  const ars = Math.round((usd || 0) * (rate || 1));
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 9, color: "#5a5a6e", minWidth: 28 }}>USD</span>
+        <EC val={usd || 0} type="number" onSave={v => onChangeUsd(Number(v))} style={{ color: CYAN, fontSize: 12 }} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+        <span style={{ fontSize: 9, color: "#5a5a6e", minWidth: 28 }}>ARS</span>
+        <EC val={ars} type="number" onSave={v => onChangeUsd(Math.round(Number(v) / Math.max(1, rate || 1)))} style={{ color: GOLD, fontSize: 11 }} />
+      </div>
+    </div>
+  );
+};
+
 // ─── COLORS ───────────────────────────────────────────────
 const GOLD = "#d4a853", GREEN = "#4ade80", BLUE = "#60a5fa", PURPLE = "#a78bfa",
   RED = "#f87171", CYAN = "#22d3ee", ORANGE = "#fb923c";
@@ -119,13 +136,13 @@ const initGigs = [
 ];
 
 const initClients = [
-  { id: 1, name: "Infinidad Audiovisual", project: "Pack Banda Sonora", details: "A definir", status: "active", monto: 0 },
-  { id: 2, name: "Citizens of Tomorrow", project: "Banda Sonora Publicidad", details: "TyC Sports", status: "active", monto: 0 },
-  { id: 3, name: "Inicia Aurora", project: "Frankenstein OST", details: "Music, SFX, VO", status: "active", monto: 0 },
-  { id: 4, name: "Sonar Luz", project: "Curso Música Cine", details: "3 Meses · 12 clases", status: "planning", monto: 0 },
-  { id: 5, name: "Mario", project: "Contactarse", details: "", status: "lead", monto: 0 },
-  { id: 6, name: "Tomás Ostiglia", project: "Contactarse", details: "", status: "lead", monto: 0 },
-  { id: 7, name: "Bridge 48", project: "Llevar portfolio", details: "", status: "lead", monto: 0 },
+  { id: 1, name: "Infinidad Audiovisual", project: "Pack Banda Sonora", details: "A definir", status: "active", montoUSD: 0 },
+  { id: 2, name: "Citizens of Tomorrow", project: "Banda Sonora Publicidad", details: "TyC Sports", status: "active", montoUSD: 0 },
+  { id: 3, name: "Inicia Aurora", project: "Frankenstein OST", details: "Music, SFX, VO", status: "active", montoUSD: 0 },
+  { id: 4, name: "Sonar Luz", project: "Curso Música Cine", details: "3 Meses · 12 clases", status: "planning", montoUSD: 0 },
+  { id: 5, name: "Mario", project: "Contactarse", details: "", status: "lead", montoUSD: 0 },
+  { id: 6, name: "Tomás Ostiglia", project: "Contactarse", details: "", status: "lead", montoUSD: 0 },
+  { id: 7, name: "Bridge 48", project: "Llevar portfolio", details: "", status: "lead", montoUSD: 0 },
 ];
 
 const initBoiosCRM = [
@@ -265,7 +282,24 @@ export default function App() {
   const [proyeccion, setProyeccion] = useStore("ij_proy", initProyeccion);
   const [social, setSocial] = useStore("ij_social", initSocial);
   const [semana] = useStore("ij_semana", initSemana);
-  const [ahorros, setAhorros] = useStore("ij_ahorros", { ars: 0, usd: 0, eur: 0 });
+  const [ahorros, setAhorros] = useStore("ij_ahorros", { ars: 0, usd: 0, viajeUsd: 0 });
+  const [aCobrar, setACobrar] = useStore("ij_acobrar", { ars: 0, usd: 0 });
+  const [dolarBlueTs, setDolarBlueTs] = useStore("ij_dblue_ts", null);
+  const [dolarBlueLoading, setDolarBlueLoading] = useState(false);
+
+  // Dólar blue fetch automático
+  const fetchDolarBlue = useCallback(async () => {
+    setDolarBlueLoading(true);
+    try {
+      const res = await fetch("https://dolarapi.com/v1/dollars/blue");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const avg = Math.round(((data.compra || data.buy || 0) + (data.venta || data.sell || 0)) / 2);
+      if (avg > 0) { setDolarBlue(avg); setDolarBlueTs(new Date().toISOString()); }
+    } catch { /* usa el último valor guardado */ }
+    finally { setDolarBlueLoading(false); }
+  }, []);
+  useEffect(() => { fetchDolarBlue(); }, []);
 
   // Handlers
   const updGig = (id, k, v) => setGigs(gigs.map(g => g.id === id ? { ...g, [k]: v } : g));
@@ -274,7 +308,7 @@ export default function App() {
   const toggleGig = (id) => updGig(id, "status", gigs.find(g => g.id === id)?.status === "confirmed" ? "pending" : "confirmed");
 
   const updClient = (id, k, v) => setClients(clients.map(c => c.id === id ? { ...c, [k]: v } : c));
-  const addClient = () => setClients([...clients, { id: Date.now(), name: "", project: "", details: "", status: "lead", monto: 0 }]);
+  const addClient = () => setClients([...clients, { id: Date.now(), name: "", project: "", details: "", status: "lead", montoUSD: 0 }]);
   const delClient = (id) => setClients(clients.filter(c => c.id !== id));
 
   const updB = (id, k, v) => setBoiosCRM(boiosCRM.map(c => c.id === id ? { ...c, [k]: v } : c));
@@ -354,14 +388,14 @@ export default function App() {
     { id: "espana", label: "España Calendar", color: BLUE },
     { id: "espeis", label: "Estudio Espeis", color: GREEN },
     { id: "sonar", label: "Sonar Luz", color: PURPLE },
-    { id: "boios", label: "Boios CRM", color: GOLD },
+    { id: "boios", label: "Boios Viaje", color: GOLD },
     { id: "neuro", label: "NeuroEconomy", color: CYAN },
     { id: "finanzas", label: "Finanzas", color: GREEN },
     { id: "marketing", label: "Marketing", color: ORANGE },
   ];
 
   const exportAll = () => {
-    const d = { gigs, clients, boiosCRM, boiosW, checklist, roadmap, pauta, proyeccion, social, ahorros, dolarBlue, eurRate, exported: new Date().toISOString() };
+    const d = { gigs, clients, boiosCRM, boiosW, checklist, roadmap, pauta, proyeccion, social, ahorros, aCobrar, dolarBlue, eurRate, exported: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "iejezkel_backup_" + new Date().toISOString().slice(0, 10) + ".json"; a.click();
   };
@@ -377,7 +411,7 @@ export default function App() {
         if (d.pauta) setPauta(d.pauta); if (d.proyeccion) setProyeccion(d.proyeccion);
         if (d.social) setSocial(d.social);
         if (d.dolarBlue) setDolarBlue(d.dolarBlue); if (d.eurRate) setEurRate(d.eurRate);
-        if (d.ahorros) setAhorros(d.ahorros);
+        if (d.ahorros) setAhorros(d.ahorros); if (d.aCobrar) setACobrar(d.aCobrar);
         alert("Datos importados correctamente");
       } catch { alert("Error al importar"); }
     }; r.readAsText(f);
@@ -387,103 +421,166 @@ export default function App() {
     switch (page) {
 
     // ── OVERVIEW ──────────────────────────────────────────
-    case "overview": return (
+    case "overview": {
+      const totalCapDisp = ahorros.ars + (ahorros.usd + ahorros.viajeUsd) * dolarBlue;
+      const totalCapDispUSD = Math.round(totalCapDisp / dolarBlue);
+      const totalACobrar = aCobrar.ars + aCobrar.usd * dolarBlue;
+      const espeisUSD = clients.reduce((s, c) => s + (c.montoUSD || c.monto || 0), 0);
+      const gastosEspana = 5095; // EUR estimado
+      const gastosARS = gastosEspana * eurRate;
+      const tsLabel = dolarBlueTs
+        ? "act. " + new Date(dolarBlueTs).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+        : "manual";
+      return (
       <div>
         <h2 className="pt">Iejezkel · España 2026</h2>
-        <p className="ps">Vista general · Click en cualquier dato para editarlo</p>
+        <p className="ps">Sistema operativo personal · {daysTo("2026-05-11")} días para el viaje</p>
 
+        {/* HEADER BAR */}
         <div className="cd" style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, color: "#5a5a6e", marginBottom: 4 }}>Countdown España</div>
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, color: "#5a5a6e", marginBottom: 4 }}>Countdown</div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 36, color: GOLD, lineHeight: 1 }}>
               {daysTo("2026-05-11")} <span style={{ fontSize: 14, color: "#9a9aaa" }}>días</span>
             </div>
-            <div style={{ fontSize: 10, color: "#5a5a6e", marginTop: 4 }}>Salida Buenos Aires · 11 mayo 2026</div>
-            <div style={{ fontSize: 10, color: "#5a5a6e" }}>Regreso · 9 agosto 2026</div>
+            <div style={{ fontSize: 10, color: "#5a5a6e", marginTop: 4 }}>11 mayo → 9 agosto 2026</div>
           </div>
-          <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 24, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 11, color: "#9a9aaa" }}>
-              Webinar Sonar Luz · <span style={{ color: PURPLE }}>{daysTo("2026-05-14")} días</span>
+          <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 24 }}>
+            <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Dólar Blue</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, color: CYAN }}>
+                {fARS(dolarBlue)}
+              </div>
+              <button onClick={fetchDolarBlue} disabled={dolarBlueLoading}
+                style={{ background: "rgba(34,211,238,.15)", border: "1px solid rgba(34,211,238,.3)", color: CYAN, borderRadius: 6, padding: "4px 10px", fontSize: 10, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                {dolarBlueLoading ? "..." : "↻ Actualizar"}
+              </button>
             </div>
-            <div style={{ fontSize: 11, color: "#9a9aaa", display: "flex", alignItems: "center", gap: 6 }}>
-              Dólar blue:&nbsp;
-              <EC val={dolarBlue} type="number" onSave={setDolarBlue} style={{ color: CYAN, fontSize: 11 }} />
-              &nbsp;ARS/USD &nbsp;·&nbsp; EUR:&nbsp;
-              <EC val={eurRate} type="number" onSave={setEurRate} style={{ color: BLUE, fontSize: 11 }} />
-              &nbsp;ARS/€
+            <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 2 }}>dolarapi.com · {tsLabel}</div>
+          </div>
+          <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 10, color: "#9a9aaa" }}>Webinar Sonar Luz en <span style={{ color: PURPLE }}>{daysTo("2026-05-14")} días</span></div>
+            <div style={{ fontSize: 10, color: "#9a9aaa" }}>
+              EUR: <EC val={eurRate} type="number" onSave={setEurRate} style={{ color: BLUE, fontSize: 10 }} /> ARS/€
             </div>
-            <div style={{ fontSize: 10, color: "#5a5a6e" }}>Click en los valores para actualizar</div>
           </div>
         </div>
 
-        <div className="g4">
+        {/* MÓDULOS — fila 1 */}
+        <div className="g3">
           <div className="cd">
-            <h3>Gigs Confirmados</h3>
-            <div className="vl gold">{cGigs.length}</div>
-            <div className="sub">{gigs.length} totales · {fEUR(cGigsRev)}</div>
+            <h3>Gigs · España</h3>
+            <div className="vl gold">{cGigs.length} <span style={{ fontSize: 14, color: "#9a9aaa" }}>confirmados</span></div>
+            <div className="sub">{gigs.length} totales · {fEUR(cGigsRev)} confirmado</div>
             <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 2 }}>{fARS(cGigsRev * eurRate)}</div>
           </div>
           <div className="cd">
-            <h3>Boios Neto</h3>
+            <h3>Boios Viaje <span style={{ color: GREEN, fontSize: 9, fontWeight: 400 }}>· cobrado</span></h3>
             <div className="vl green">{fARS(tNeto)}</div>
             <Usd ars={tNeto} rate={dolarBlue} />
             <div className="sub">{boiosCRM.length} clientes · {boiosW.length} semanas</div>
           </div>
           <div className="cd">
             <h3>Sonar Luz</h3>
-            <div className="vl">0 / 8</div>
+            <div className="vl" style={{ color: PURPLE }}>0 / 8</div>
             <div className="sub">USD 100/mes · obj. USD 2.120</div>
-            <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 2 }}>{fARS(2120 * dolarBlue)} (3 cohortes: {fARS(12500 * dolarBlue)})</div>
+            <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 2 }}>{fARS(2120 * dolarBlue)}</div>
+          </div>
+        </div>
+
+        {/* MÓDULOS — fila 2 */}
+        <div className="g2" style={{ marginBottom: 20 }}>
+          <div className="cd">
+            <h3>Estudio Espeis</h3>
+            <div className="vl" style={{ color: GREEN }}>
+              {espeisUSD > 0 ? `USD ${fmt(espeisUSD)}` : "Sin monto"}
+            </div>
+            {espeisUSD > 0 && <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 2 }}>{fARS(espeisUSD * dolarBlue)}</div>}
+            <div className="sub">{clients.filter(c => c.status === "active").length} activos · {clients.filter(c => c.status === "lead").length} leads</div>
           </div>
           <div className="cd">
             <h3>Visa España</h3>
             <div className="vl">{ckDone}/{checklist.length}</div>
             <div className="pb"><div className="pf" style={{ width: `${ckDone / checklist.length * 100}%`, background: GOLD }} /></div>
-            <div className="sub">{checklist.length - ckDone} ítems pendientes</div>
+            <div className="sub">{checklist.length - ckDone} ítems pendientes · NeuroEconomy</div>
           </div>
         </div>
 
-        {/* AHORROS */}
-        <div className="cd" style={{ marginBottom: 20 }}>
-          <h3>Ahorros · Capital disponible</h3>
-          <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
+        {/* CAPITAL DISPONIBLE */}
+        <div className="cd" style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3>Capital Disponible</h3>
+            <div style={{ fontSize: 9, color: "#5a5a6e" }}>Click en cualquier campo para editar</div>
+          </div>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
             <div>
               <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Pesos ARS</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ color: "#5a5a6e", fontSize: 14 }}>$</span>
-                <EC val={ahorros.ars} type="number" onSave={v => setAhorros({ ...ahorros, ars: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: GOLD }} />
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 13 }}>$</span>
+                <EC val={ahorros.ars} type="number" onSave={v => setAhorros({ ...ahorros, ars: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, color: GOLD }} />
               </div>
-              <Usd ars={ahorros.ars} rate={dolarBlue} />
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>USD {fmt(Math.round(ahorros.ars / Math.max(1, dolarBlue)))}</div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Dólares USD</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ color: "#5a5a6e", fontSize: 14 }}>USD</span>
-                <EC val={ahorros.usd} type="number" onSave={v => setAhorros({ ...ahorros, usd: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: CYAN }} />
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>USD ahorrados</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 13 }}>USD</span>
+                <EC val={ahorros.usd} type="number" onSave={v => setAhorros({ ...ahorros, usd: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, color: CYAN }} />
               </div>
               <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>{fARS(ahorros.usd * dolarBlue)}</div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Euros EUR</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ color: "#5a5a6e", fontSize: 14 }}>€</span>
-                <EC val={ahorros.eur} type="number" onSave={v => setAhorros({ ...ahorros, eur: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: BLUE }} />
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>USD que llevo al viaje</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 13 }}>USD</span>
+                <EC val={ahorros.viajeUsd} type="number" onSave={v => setAhorros({ ...ahorros, viajeUsd: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, color: ORANGE }} />
               </div>
-              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>{fARS(ahorros.eur * eurRate)}</div>
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>{fARS(ahorros.viajeUsd * dolarBlue)} al tipo blue</div>
             </div>
-            <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 24 }}>
+            <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 20 }}>
               <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Total ARS equiv.</div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: GREEN }}>
-                {fARS(ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate)}
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: totalCapDisp >= gastosARS ? GREEN : RED }}>
+                {fARS(totalCapDisp)}
               </div>
-              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>
-                USD {fmt(Math.round((ahorros.ars / dolarBlue) + ahorros.usd + (ahorros.eur * eurRate / dolarBlue)))} total equiv.
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>USD {fmt(totalCapDispUSD)} total</div>
+              <div style={{ fontSize: 10, marginTop: 6, color: totalCapDisp >= gastosARS ? GREEN : RED }}>
+                {totalCapDisp >= gastosARS
+                  ? `Cubre gastos España (${fEUR(gastosEspana)})`
+                  : `Falta ${fARS(gastosARS - totalCapDisp)} para cubrir España`}
               </div>
-              <div style={{ fontSize: 10, color: 5095 * eurRate > (ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate) ? RED : GREEN, marginTop: 4 }}>
-                {5095 * eurRate > (ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate)
-                  ? "Falta " + fARS(5095 * eurRate - (ahorros.ars + ahorros.usd * dolarBlue + ahorros.eur * eurRate)) + " para cubrir España"
-                  : "Cubre los " + fEUR(5095) + " de gastos España"}
+            </div>
+          </div>
+        </div>
+
+        {/* CAPITAL A COBRAR */}
+        <div className="cd" style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3>Capital a Cobrar <span style={{ color: ORANGE, fontSize: 9, fontWeight: 400 }}>· pendiente de cobro</span></h3>
+            <div style={{ fontSize: 9, color: "#5a5a6e" }}>No incluido en capital disponible</div>
+          </div>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Pesos ARS</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 13 }}>$</span>
+                <EC val={aCobrar.ars} type="number" onSave={v => setACobrar({ ...aCobrar, ars: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, color: GOLD }} />
               </div>
+              <Usd ars={aCobrar.ars} rate={dolarBlue} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Dólares USD</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ color: "#5a5a6e", fontSize: 13 }}>USD</span>
+                <EC val={aCobrar.usd} type="number" onSave={v => setACobrar({ ...aCobrar, usd: v })} style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, color: CYAN }} />
+              </div>
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>{fARS(aCobrar.usd * dolarBlue)}</div>
+            </div>
+            <div style={{ borderLeft: "1px solid #2a2a32", paddingLeft: 20 }}>
+              <div style={{ fontSize: 10, color: "#5a5a6e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Total ARS equiv.</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: ORANGE }}>
+                {fARS(totalACobrar)}
+              </div>
+              <div style={{ fontSize: 9, color: "#5a5a6e", marginTop: 1 }}>USD {fmt(Math.round(totalACobrar / Math.max(1, dolarBlue)))} total equiv.</div>
             </div>
           </div>
         </div>
@@ -554,7 +651,8 @@ export default function App() {
           → <strong>Visa:</strong> {checklist.length - ckDone} ítems pendientes · Prioridad: pasaporte + antecedentes + seguro
         </div>
       </div>
-    );
+      );
+    }
 
     // ── HOJA DE RUTA ──────────────────────────────────────
     case "roadmap": return (
@@ -869,7 +967,9 @@ export default function App() {
     );
 
     // ── ESTUDIO ESPEIS ────────────────────────────────────
-    case "espeis": return (
+    case "espeis": {
+      const espeisTotal = clients.reduce((s, c) => s + (c.montoUSD || c.monto || 0), 0);
+      return (
       <div>
         <h2 className="pt">Estudio Espeis</h2>
         <p className="ps">Música y Sonido para Cine y Publicidad · Pipeline de clientes</p>
@@ -888,42 +988,56 @@ export default function App() {
             <div className="vl" style={{ color: ORANGE }}>{clients.filter(c => c.status === "lead").length}</div>
           </div>
           <div className="cd">
-            <h3>Pipeline € est.</h3>
-            <div className="vl gold">{fEUR(clients.reduce((s, c) => s + (c.monto || 0), 0))}</div>
-            <div className="sub">{fARS(clients.reduce((s, c) => s + (c.monto || 0), 0) * eurRate)}</div>
+            <h3>Pipeline USD est.</h3>
+            <div className="vl gold">{espeisTotal > 0 ? `USD ${fmt(espeisTotal)}` : "—"}</div>
+            {espeisTotal > 0 && <div className="sub">{fARS(espeisTotal * dolarBlue)}</div>}
           </div>
         </div>
 
         <div className="cd" style={{ marginBottom: 16 }}>
-          <h3>Pipeline de Clientes</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <h3>Pipeline de Clientes</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 9, color: "#5a5a6e" }}>Dólar blue: {fARS(dolarBlue)}</span>
+              <button onClick={fetchDolarBlue} disabled={dolarBlueLoading}
+                style={{ background: "rgba(34,211,238,.1)", border: "1px solid rgba(34,211,238,.25)", color: CYAN, borderRadius: 5, padding: "3px 8px", fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                {dolarBlueLoading ? "..." : "↻"}
+              </button>
+            </div>
+          </div>
           <table>
-            <thead><tr><th>Cliente</th><th>Proyecto</th><th>Detalles</th><th>Monto €</th><th>ARS est.</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th>Cliente</th><th>Proyecto</th><th>Detalles</th><th>Monto USD / ARS</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {clients.map(c => (
-                <tr key={c.id}>
-                  <td><EC val={c.name} onSave={v => updClient(c.id, "name", v)} style={{ color: "#e8e8ec", fontWeight: 500 }} /></td>
-                  <td><EC val={c.project} onSave={v => updClient(c.id, "project", v)} /></td>
-                  <td><EC val={c.details} onSave={v => updClient(c.id, "details", v)} /></td>
-                  <td><EC val={c.monto} type="number" onSave={v => updClient(c.id, "monto", v)} style={{ color: GREEN }} /></td>
-                  <td style={{ fontSize: 10, color: "#5a5a6e" }}>{c.monto ? fARS(c.monto * eurRate) : "—"}</td>
-                  <td><EC val={c.status} onSave={v => updClient(c.id, "status", v)} opts={["active", "planning", "lead", "done"]} /></td>
-                  <td><DelBtn onClick={() => delClient(c.id)} /></td>
-                </tr>
-              ))}
+              {clients.map(c => {
+                const usd = c.montoUSD || c.monto || 0;
+                return (
+                  <tr key={c.id}>
+                    <td><EC val={c.name} onSave={v => updClient(c.id, "name", v)} style={{ color: "#e8e8ec", fontWeight: 500 }} /></td>
+                    <td><EC val={c.project} onSave={v => updClient(c.id, "project", v)} /></td>
+                    <td><EC val={c.details} onSave={v => updClient(c.id, "details", v)} /></td>
+                    <td>
+                      <BiMonto usd={usd} rate={dolarBlue} onChangeUsd={v => updClient(c.id, "montoUSD", v)} />
+                    </td>
+                    <td><EC val={c.status} onSave={v => updClient(c.id, "status", v)} opts={["active", "planning", "lead", "done"]} /></td>
+                    <td><DelBtn onClick={() => delClient(c.id)} /></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <div className="add-btn" onClick={addClient}>+ Agregar cliente</div>
         </div>
 
         <div className="ib">
-          <strong>Pricing España:</strong> Cine indie {fEUR(500)}–{fEUR(2000)} ({fARS(500 * eurRate)}–{fARS(2000 * eurRate)}) · Publicidad {fEUR(1000)}–{fEUR(5000)} · Serie {fEUR(3000)}–{fEUR(8000)}<br />
-          <strong>Un proyecto publicidad €2.000</strong> = {fARS(2000 * eurRate)} → cubre ~2 meses de gastos Europa<br />
-          → LinkedIn: conectar 20 productoras Madrid/Barcelona<br />
-          → Reels: proceso Ableton, before/after escenas<br />
+          <strong>Pricing referencia (USD):</strong><br />
+          Cine indie USD 500–2.000 ({fARS(500 * dolarBlue)}–{fARS(2000 * dolarBlue)}) · Publicidad USD 1.000–5.000 · Serie USD 3.000–8.000<br />
+          <strong>Un proyecto publicidad USD 2.000</strong> = {fARS(2000 * dolarBlue)} → cubre ~2 meses de gastos Europa<br />
+          → LinkedIn: conectar 20 productoras Madrid/Barcelona · Reels: proceso Ableton, before/after<br />
           → Presencial: USB con reel + PDF portfolio · Target: productoras boutique con proyectos LATAM
         </div>
       </div>
-    );
+      );
+    }
 
     // ── SONAR LUZ ─────────────────────────────────────────
     case "sonar": return (
@@ -1013,37 +1127,37 @@ export default function App() {
       </div>
     );
 
-    // ── BOIOS CRM ─────────────────────────────────────────
+    // ── BOIOS VIAJE ───────────────────────────────────────
     case "boios": return (
       <div>
-        <h2 className="pt">Boios de Saavedra · CRM</h2>
-        <p className="ps">{boiosCRM.length} contactos · {boiosW.length} semanas · Mile 45% · Dan 20% · Ezu 35%</p>
+        <h2 className="pt">Boios de Saavedra · Ventas del Viaje</h2>
+        <p className="ps">Historial de ventas pre-viaje · ya cobrado · {boiosCRM.length} clientes · {boiosW.length} semanas · Mile 45% · Dan 20% · Ezu 35%</p>
 
         <div className="g4">
           <div className="cd">
-            <h3>Ingresos Total</h3>
+            <h3>Vendido Total <span style={{ color: GREEN, fontSize: 9, fontWeight: 400 }}>· cobrado</span></h3>
             <div className="vl gold">{fARS(tRev)}</div>
             <Usd ars={tRev} rate={dolarBlue} />
           </div>
           <div className="cd">
-            <h3>Neto Total</h3>
+            <h3>Neto (después de costos)</h3>
             <div className="vl green">{fARS(tNeto)}</div>
             <Usd ars={tNeto} rate={dolarBlue} />
           </div>
           <div className="cd">
-            <h3>Clientes Activos</h3>
+            <h3>Clientes con Historial</h3>
             <div className="vl">{boiosCRM.filter(c => ["repeat", "delivered", "new_client"].includes(c.status)).length}</div>
-            <div className="sub">recurrentes + nuevos</div>
+            <div className="sub">compraron al menos 1 vez</div>
           </div>
           <div className="cd">
-            <h3>Leads Calientes</h3>
+            <h3>Sin Compra Aún</h3>
             <div className="vl" style={{ color: ORANGE }}>{boiosCRM.filter(c => ["new_lead", "interested"].includes(c.status)).length}</div>
-            <div className="sub">por contactar ahora</div>
+            <div className="sub">leads calientes</div>
           </div>
         </div>
 
         <div className="cd" style={{ marginBottom: 16 }}>
-          <h3>CRM · WhatsApp Analysis</h3>
+          <h3>Historial de Ventas · WhatsApp</h3>
           <div style={{ overflowX: "auto" }}>
             <table>
               <thead><tr><th>Cliente</th><th>Fecha</th><th>Status</th><th>Último Msg</th><th>Próxima Acción</th><th>Qty</th><th>Revenue ARS</th><th /></tr></thead>
